@@ -36,5 +36,20 @@ public interface DeliveryService {
      * Get deliveries for a driver
      */
     List<DeliveryResponse> getDeliveriesByDriver(UUID driverId, UUID tenantId);
+    
+    /**
+     * Create delivery with provider (third-party or own fleet)
+     */
+    DeliveryResponse createDeliveryWithProvider(
+        UUID fulfillmentId, 
+        UUID tenantId, 
+        String providerCode,
+        boolean isIntercity
+    );
+    
+    /**
+     * Sync tracking from provider
+     */
+    DeliveryResponse syncTrackingFromProvider(UUID deliveryId, UUID tenantId);
 }
 

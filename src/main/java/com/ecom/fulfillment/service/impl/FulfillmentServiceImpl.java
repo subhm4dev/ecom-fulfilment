@@ -13,6 +13,7 @@ import com.ecom.fulfillment.model.response.FulfillmentResponse;
 import com.ecom.fulfillment.repository.DeliveryRepository;
 import com.ecom.fulfillment.repository.DriverRepository;
 import com.ecom.fulfillment.repository.FulfillmentRepository;
+import com.ecom.fulfillment.service.DeliveryService;
 import com.ecom.fulfillment.service.FulfillmentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,6 +37,7 @@ public class FulfillmentServiceImpl implements FulfillmentService {
     private final FulfillmentRepository fulfillmentRepository;
     private final DeliveryRepository deliveryRepository;
     private final DriverRepository driverRepository;
+    private final DeliveryService deliveryService;
     private final KafkaTemplate<String, Object> kafkaTemplate;
     
     private static final String FULFILLMENT_CREATED_TOPIC = "fulfillment-created";
@@ -172,6 +174,59 @@ public class FulfillmentServiceImpl implements FulfillmentService {
         Fulfillment savedFulfillment = fulfillmentRepository.save(fulfillment);
         
         log.info("Driver assigned: fulfillmentId={}, driverId={}", fulfillmentId, request.driverId());
+        
+        return toResponse(savedFulfillment);
+    }
+    
+    @Override
+    @Transactional
+    public FulfillmentResponse assignProvider(
+        UUID fulfillmentId, 
+        UUID tenantId, 
+        List<String> userRoles, 
+        String providerCode,
+        boolean isIntercity
+    ) {
+        log.info("Assigning provider to fulfillment: fulfillmentId={}, providerCode={}, isIntercity={}", 
+            fulfillmentId, providerCode, isIntercity);
+        
+        // Check authorization (ADMIN/STAFF only)
+        boolean isAuthorized = userRoles != null && (
+            userRoles.contains("ADMIN") || 
+            userRoles.contains("STAFF")
+        );
+        
+        if (!isAuthorized) {
+            throw new BusinessException(
+                ErrorCode.ACCESS_DENIED,
+                "Only ADMIN or STAFF can assign providers"
+            );
+        }
+        
+        Fulfillment fulfillment = fulfillmentRepository.findById(fulfillmentId)
+            .orElseThrow(() -> new BusinessException(
+                ErrorCode.RESOURCE_NOT_FOUND,
+                "Fulfillment not found: " + fulfillmentId
+            ));
+        
+        // Verify tenant
+        if (!fulfillment.getTenantId().equals(tenantId)) {
+            throw new BusinessException(
+                ErrorCode.ACCESS_DENIED,
+                "Fulfillment belongs to different tenant"
+            );
+        }
+        
+        // Create delivery with provider
+        deliveryService.createDeliveryWithProvider(fulfillmentId, tenantId, providerCode, isIntercity);
+        
+        // Update fulfillment status
+        fulfillment.setStatus(Fulfillment.FulfillmentStatus.ASSIGNED);
+        fulfillment.setUpdatedAt(LocalDateTime.now());
+        
+        Fulfillment savedFulfillment = fulfillmentRepository.save(fulfillment);
+        
+        log.info("Provider assigned: fulfillmentId={}, providerCode={}", fulfillmentId, providerCode);
         
         return toResponse(savedFulfillment);
     }

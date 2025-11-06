@@ -11,10 +11,16 @@ import com.ecom.fulfillment.model.request.TrackDeliveryRequest;
 import com.ecom.fulfillment.model.response.DeliveryResponse;
 import com.ecom.fulfillment.model.response.TrackingHistoryResponse;
 import com.ecom.fulfillment.model.response.TrackingResponse;
+import com.ecom.fulfillment.entity.DeliveryProvider;
+import com.ecom.fulfillment.provider.DeliveryProviderService;
+import com.ecom.fulfillment.provider.dto.CreateShipmentRequest;
+import com.ecom.fulfillment.provider.dto.CreateShipmentResponse;
+import com.ecom.fulfillment.repository.DeliveryProviderRepository;
 import com.ecom.fulfillment.repository.DeliveryRepository;
 import com.ecom.fulfillment.repository.FulfillmentRepository;
 import com.ecom.fulfillment.repository.TrackingHistoryRepository;
 import com.ecom.fulfillment.service.DeliveryService;
+import com.ecom.fulfillment.service.ProviderSelectionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -37,6 +43,8 @@ public class DeliveryServiceImpl implements DeliveryService {
     private final DeliveryRepository deliveryRepository;
     private final FulfillmentRepository fulfillmentRepository;
     private final TrackingHistoryRepository trackingHistoryRepository;
+    private final DeliveryProviderRepository providerRepository;
+    private final ProviderSelectionService providerSelectionService;
     private final KafkaTemplate<String, Object> kafkaTemplate;
     
     private static final String DELIVERY_STATUS_UPDATED_TOPIC = "delivery-status-updated";
@@ -61,12 +69,17 @@ public class DeliveryServiceImpl implements DeliveryService {
             );
         }
         
-        // Verify driver
-        if (!delivery.getDriverId().equals(driverId)) {
-            throw new BusinessException(
-                ErrorCode.ACCESS_DENIED,
-                "Delivery is not assigned to this driver"
-            );
+        // Verify driver (only for own fleet deliveries)
+        if (delivery.getDeliveryType() == Delivery.DeliveryType.OWN_FLEET) {
+            if (delivery.getDriverId() == null || !delivery.getDriverId().equals(driverId)) {
+                throw new BusinessException(
+                    ErrorCode.ACCESS_DENIED,
+                    "Delivery is not assigned to this driver"
+                );
+            }
+        } else {
+            // For third-party providers, tracking is handled via webhooks/sync
+            log.warn("Attempting to track third-party delivery manually: deliveryId={}", deliveryId);
         }
         
         // Update delivery location
@@ -147,7 +160,7 @@ public class DeliveryServiceImpl implements DeliveryService {
             ))
             .collect(Collectors.toList());
         
-        return new TrackingResponse(
+        return new com.ecom.fulfillment.model.response.TrackingResponse(
             delivery.getTrackingNumber(),
             fulfillment.getOrderId(),
             delivery.getStatus(),
@@ -197,10 +210,18 @@ public class DeliveryServiceImpl implements DeliveryService {
             );
         }
         
-        if (!delivery.getDriverId().equals(driverId)) {
+        // Verify driver (only for own fleet)
+        if (delivery.getDeliveryType() == Delivery.DeliveryType.OWN_FLEET) {
+            if (delivery.getDriverId() == null || !delivery.getDriverId().equals(driverId)) {
+                throw new BusinessException(
+                    ErrorCode.ACCESS_DENIED,
+                    "Delivery is not assigned to this driver"
+                );
+            }
+        } else {
             throw new BusinessException(
-                ErrorCode.ACCESS_DENIED,
-                "Delivery is not assigned to this driver"
+                ErrorCode.INVALID_OPERATION,
+                "Cannot complete third-party delivery manually. Use provider sync."
             );
         }
         
@@ -247,6 +268,158 @@ public class DeliveryServiceImpl implements DeliveryService {
             .stream()
             .map(this::toResponse)
             .collect(Collectors.toList());
+    }
+    
+    @Override
+    @Transactional
+    public DeliveryResponse createDeliveryWithProvider(
+        UUID fulfillmentId, 
+        UUID tenantId, 
+        String providerCode,
+        boolean isIntercity
+    ) {
+        log.info("Creating delivery with provider: fulfillmentId={}, providerCode={}, isIntercity={}", 
+            fulfillmentId, providerCode, isIntercity);
+        
+        Fulfillment fulfillment = fulfillmentRepository.findById(fulfillmentId)
+            .orElseThrow(() -> new BusinessException(
+                ErrorCode.RESOURCE_NOT_FOUND,
+                "Fulfillment not found: " + fulfillmentId
+            ));
+        
+        if (!fulfillment.getTenantId().equals(tenantId)) {
+            throw new BusinessException(
+                ErrorCode.ACCESS_DENIED,
+                "Fulfillment belongs to different tenant"
+            );
+        }
+        
+        // Select provider
+        DeliveryProvider provider = providerSelectionService.selectProvider(
+            tenantId, isIntercity, providerCode
+        );
+        
+        DeliveryProviderService providerService = providerSelectionService.getProviderService(
+            provider.getProviderCode().name()
+        );
+        
+        // Create shipment request (TODO: Get address details from AddressBook service)
+        CreateShipmentRequest shipmentRequest = new CreateShipmentRequest(
+            fulfillment.getOrderId(),
+            fulfillmentId,
+            tenantId,
+            null,  // TODO: Get pickup address
+            null,  // TODO: Get delivery address
+            null,  // TODO: Get package details
+            null,  // TODO: Get COD amount
+            isIntercity ? "INTERCITY" : "INTRACITY"
+        );
+        
+        // Create shipment with provider
+        CreateShipmentResponse shipmentResponse = providerService.createShipment(shipmentRequest);
+        
+        // Create delivery record
+        Delivery delivery = Delivery.builder()
+            .fulfillment(fulfillment)
+            .deliveryType(provider.getProviderCode() == DeliveryProvider.ProviderCode.OWN_FLEET 
+                ? Delivery.DeliveryType.OWN_FLEET 
+                : Delivery.DeliveryType.THIRD_PARTY)
+            .driverId(null)  // Will be set for OWN_FLEET
+            .provider(provider)
+            .providerTrackingId(shipmentResponse.providerTrackingId())
+            .tenantId(tenantId)
+            .status(Delivery.DeliveryStatus.ASSIGNED)
+            .trackingNumber("TRK-" + fulfillmentId.toString().substring(0, 8).toUpperCase())
+            .providerStatus(shipmentResponse.status())
+            .createdAt(LocalDateTime.now())
+            .build();
+        
+        Delivery savedDelivery = deliveryRepository.save(delivery);
+        
+        log.info("Delivery created with provider: deliveryId={}, providerTrackingId={}", 
+            savedDelivery.getId(), shipmentResponse.providerTrackingId());
+        
+        return toResponse(savedDelivery);
+    }
+    
+    @Override
+    @Transactional
+    public DeliveryResponse syncTrackingFromProvider(UUID deliveryId, UUID tenantId) {
+        log.info("Syncing tracking from provider: deliveryId={}", deliveryId);
+        
+        Delivery delivery = deliveryRepository.findById(deliveryId)
+            .orElseThrow(() -> new BusinessException(
+                ErrorCode.RESOURCE_NOT_FOUND,
+                "Delivery not found: " + deliveryId
+            ));
+        
+        if (!delivery.getTenantId().equals(tenantId)) {
+            throw new BusinessException(
+                ErrorCode.ACCESS_DENIED,
+                "Delivery belongs to different tenant"
+            );
+        }
+        
+        if (delivery.getDeliveryType() == Delivery.DeliveryType.OWN_FLEET) {
+            log.debug("Own fleet delivery, tracking handled internally");
+            return toResponse(delivery);
+        }
+        
+        if (delivery.getProviderTrackingId() == null) {
+            throw new BusinessException(
+                ErrorCode.INVALID_OPERATION,
+                "No provider tracking ID found"
+            );
+        }
+        
+        // Get provider service
+        DeliveryProviderService providerService = providerSelectionService.getProviderService(
+            delivery.getProvider().getProviderCode().name()
+        );
+        
+        // Get tracking from provider
+        com.ecom.fulfillment.provider.dto.TrackingResponse providerTracking = providerService.getTracking(
+            delivery.getProviderTrackingId()
+        );
+        
+        // Update delivery with provider status
+        delivery.setProviderStatus(providerTracking.status());
+        delivery.setCurrentLocation(providerTracking.currentLocation());
+        delivery.setLatitude(providerTracking.latitude());
+        delivery.setLongitude(providerTracking.longitude());
+        
+        // Map provider status to our status
+        if (providerTracking.status() != null) {
+            try {
+                delivery.setStatus(Delivery.DeliveryStatus.valueOf(providerTracking.status()));
+            } catch (IllegalArgumentException e) {
+                log.warn("Unknown provider status: {}", providerTracking.status());
+            }
+        }
+        
+        delivery.setUpdatedAt(LocalDateTime.now());
+        
+        // Create tracking history entry
+        if (providerTracking.trackingEvents() != null && !providerTracking.trackingEvents().isEmpty()) {
+            var latestEvent = providerTracking.trackingEvents().get(0);
+            TrackingHistory trackingHistory = TrackingHistory.builder()
+                .delivery(delivery)
+                .latitude(providerTracking.latitude())
+                .longitude(providerTracking.longitude())
+                .locationDescription(latestEvent.location())
+                .status(latestEvent.status())
+                .updatedBy(null)  // Provider update
+                .createdAt(latestEvent.eventTime() != null ? latestEvent.eventTime() : LocalDateTime.now())
+                .build();
+            trackingHistoryRepository.save(trackingHistory);
+        }
+        
+        Delivery savedDelivery = deliveryRepository.save(delivery);
+        
+        log.info("Tracking synced from provider: deliveryId={}, status={}", 
+            savedDelivery.getId(), providerTracking.status());
+        
+        return toResponse(savedDelivery);
     }
     
     private DeliveryResponse toResponse(Delivery delivery) {

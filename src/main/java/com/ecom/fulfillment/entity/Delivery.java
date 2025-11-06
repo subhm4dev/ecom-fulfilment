@@ -40,8 +40,23 @@ public class Delivery {
     @Column(name = "fulfillment_id", insertable = false, updatable = false)
     private UUID fulfillmentId;
     
-    @Column(name = "driver_id", nullable = false)
-    private UUID driverId;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "delivery_type", nullable = false, length = 50)
+    @Builder.Default
+    private DeliveryType deliveryType = DeliveryType.OWN_FLEET;
+    
+    @Column(name = "driver_id")
+    private UUID driverId;  // NULL for third-party providers
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "provider_id")
+    private DeliveryProvider provider;  // NULL for own fleet
+    
+    @Column(name = "provider_id", insertable = false, updatable = false)
+    private UUID providerId;
+    
+    @Column(name = "provider_tracking_id", length = 200)
+    private String providerTrackingId;  // Provider's tracking ID
     
     @Column(name = "tenant_id", nullable = false)
     private UUID tenantId;
@@ -63,6 +78,9 @@ public class Delivery {
     @Column(name = "tracking_number", unique = true, length = 100)
     private String trackingNumber;
     
+    @Column(name = "provider_status", length = 100)
+    private String providerStatus;  // Provider's status (e.g., "In Transit", "Out for Delivery")
+    
     @OneToMany(mappedBy = "delivery", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<TrackingHistory> trackingHistory = new ArrayList<>();
@@ -77,6 +95,11 @@ public class Delivery {
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
+    }
+    
+    public enum DeliveryType {
+        OWN_FLEET,      // Own delivery fleet (uses driver_id)
+        THIRD_PARTY     // Third-party provider (uses provider_id)
     }
     
     public enum DeliveryStatus {

@@ -30,9 +30,20 @@ public interface FulfillmentService {
     FulfillmentResponse getFulfillmentByOrderId(UUID orderId, UUID tenantId, List<String> userRoles);
     
     /**
-     * Assign driver to fulfillment
+     * Assign driver to fulfillment (for own fleet)
      */
     FulfillmentResponse assignDriver(UUID fulfillmentId, UUID tenantId, List<String> userRoles, AssignDriverRequest request);
+    
+    /**
+     * Assign provider to fulfillment (for third-party providers)
+     */
+    FulfillmentResponse assignProvider(
+        UUID fulfillmentId, 
+        UUID tenantId, 
+        List<String> userRoles, 
+        String providerCode,
+        boolean isIntercity
+    );
     
     /**
      * Update fulfillment status
