@@ -81,6 +81,47 @@ public class Delivery {
     @Column(name = "provider_status", length = 100)
     private String providerStatus;  // Provider's status (e.g., "In Transit", "Out for Delivery")
     
+    // Proximity fields for dual-confirmation system
+    @Column(name = "delivery_address_latitude", precision = 10, scale = 8)
+    private BigDecimal deliveryAddressLatitude;
+    
+    @Column(name = "delivery_address_longitude", precision = 11, scale = 8)
+    private BigDecimal deliveryAddressLongitude;
+    
+    @Column(name = "proximity_radius_meters")
+    private Integer proximityRadiusMeters;
+    
+    @Column(name = "requires_dual_confirmation")
+    @Builder.Default
+    private Boolean requiresDualConfirmation = true;
+    
+    @Column(name = "confirmation_timeout_minutes")
+    private Integer confirmationTimeoutMinutes;
+    
+    // Additional fields from requirements
+    @Column(name = "attempt_count")
+    @Builder.Default
+    private Integer attemptCount = 0;
+    
+    @Column(name = "last_attempt_at")
+    private LocalDateTime lastAttemptAt;
+    
+    @Column(name = "next_attempt_at")
+    private LocalDateTime nextAttemptAt;
+    
+    @Column(name = "failure_reason", length = 200)
+    private String failureReason;
+    
+    @Column(name = "cod_amount", precision = 10, scale = 2)
+    private BigDecimal codAmount;
+    
+    @Column(name = "cod_collected")
+    @Builder.Default
+    private Boolean codCollected = false;
+    
+    @Column(name = "estimated_arrival")
+    private LocalDateTime estimatedArrival;
+    
     @OneToMany(mappedBy = "delivery", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<TrackingHistory> trackingHistory = new ArrayList<>();

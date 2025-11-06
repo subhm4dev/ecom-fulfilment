@@ -1,0 +1,282 @@
+{
+  "_type": "export",
+  "__export_format": 4,
+  "__export_date": "2025-11-06T21:35:00.000Z",
+  "__export_source": "insomnia.desktop.app:v2023.5.8",
+  "resources": [
+    {
+      "_id": "req_dual_confirmation_agent",
+      "parentId": "fld_dual_confirmation",
+      "modified": 1733510100000,
+      "created": 1733510100000,
+      "url": "{{ _.base_url }}/api/v1/delivery/{{ deliveryId }}/confirm",
+      "name": "Agent Confirm Delivery",
+      "description": "Agent confirms delivery with GPS coordinates. Requires proximity verification.",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"latitude\": 28.6139,\n  \"longitude\": 77.2090,\n  \"locationAccuracy\": 5.2,\n  \"customerNotAvailable\": false\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "X-User-Id",
+          "value": "{{ agentUserId }}"
+        },
+        {
+          "name": "X-Tenant-Id",
+          "value": "{{ tenantId }}"
+        }
+      ],
+      "authentication": {},
+      "metaSortKey": 1000000000000,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_dual_confirmation_customer",
+      "parentId": "fld_dual_confirmation",
+      "modified": 1733510100000,
+      "created": 1733510100000,
+      "url": "{{ _.base_url }}/api/v1/delivery/{{ deliveryId }}/customer-confirm",
+      "name": "Customer Confirm Delivery",
+      "description": "Customer confirms delivery with GPS coordinates. Requires proximity verification.",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"latitude\": 28.6140,\n  \"longitude\": 77.2091,\n  \"locationAccuracy\": 8.5,\n  \"agentNotAvailable\": false\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "X-User-Id",
+          "value": "{{ customerUserId }}"
+        },
+        {
+          "name": "X-Tenant-Id",
+          "value": "{{ tenantId }}"
+        }
+      ],
+      "authentication": {},
+      "metaSortKey": 2000000000000,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_dual_confirmation_status",
+      "parentId": "fld_dual_confirmation",
+      "modified": 1733510100000,
+      "created": 1733510100000,
+      "url": "{{ _.base_url }}/api/v1/delivery/{{ deliveryId }}/confirmation-status?isAgent={{ isAgent }}",
+      "name": "Get Confirmation Status",
+      "description": "Get current confirmation status for a delivery",
+      "method": "GET",
+      "body": {},
+      "parameters": [],
+      "headers": [
+        {
+          "name": "X-User-Id",
+          "value": "{{ userId }}"
+        },
+        {
+          "name": "X-Tenant-Id",
+          "value": "{{ tenantId }}"
+        }
+      ],
+      "authentication": {},
+      "metaSortKey": 3000000000000,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_share_delivery_link",
+      "parentId": "fld_alternate_recipients",
+      "modified": 1733510100000,
+      "created": 1733510100000,
+      "url": "{{ _.base_url }}/api/v1/delivery/{{ deliveryId }}/share-link",
+      "name": "Share Delivery Link",
+      "description": "Share delivery link with alternate recipient(s). No limit on number of alternates.",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"alternateRecipients\": [\n    {\n      \"name\": \"John Doe\",\n      \"phoneNumber\": \"+919876543210\",\n      \"email\": \"john@example.com\",\n      \"userId\": null\n    }\n  ],\n  \"shareMethod\": \"SMS\",\n  \"expiryHours\": 24\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "X-User-Id",
+          "value": "{{ customerUserId }}"
+        },
+        {
+          "name": "X-Tenant-Id",
+          "value": "{{ tenantId }}"
+        }
+      ],
+      "authentication": {},
+      "metaSortKey": 1000000000000,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_alternate_confirm",
+      "parentId": "fld_alternate_recipients",
+      "modified": 1733510100000,
+      "created": 1733510100000,
+      "url": "{{ _.base_url }}/api/v1/public/delivery/share/{{ shareToken }}/confirm",
+      "name": "Alternate Recipient Confirm (Public)",
+      "description": "Alternate recipient confirms delivery. No authentication required. Same dual confirmation criteria applies.",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"latitude\": 28.6140,\n  \"longitude\": 77.2091,\n  \"locationAccuracy\": 8.5,\n  \"agentNotAvailable\": false\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {},
+      "metaSortKey": 2000000000000,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_public_tracking",
+      "parentId": "fld_public",
+      "modified": 1733510100000,
+      "created": 1733510100000,
+      "url": "{{ _.base_url }}/api/v1/delivery/public/tracking/{{ trackingNumber }}",
+      "name": "Public Tracking (No Auth)",
+      "description": "Track delivery using tracking number. No authentication required.",
+      "method": "GET",
+      "body": {},
+      "parameters": [],
+      "headers": [
+        {
+          "name": "X-Tenant-Id",
+          "value": "{{ tenantId }}"
+        }
+      ],
+      "authentication": {},
+      "metaSortKey": 1000000000000,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "fld_dual_confirmation",
+      "parentId": "wrk_fulfillment",
+      "modified": 1733510100000,
+      "created": 1733510100000,
+      "name": "Dual Confirmation",
+      "description": "Dual-confirmation delivery system endpoints",
+      "environment": {},
+      "environmentPropertyOrder": null,
+      "metaSortKey": 1000000000000,
+      "_type": "request_group"
+    },
+    {
+      "_id": "fld_alternate_recipients",
+      "parentId": "wrk_fulfillment",
+      "modified": 1733510100000,
+      "created": 1733510100000,
+      "name": "Alternate Recipients",
+      "description": "Alternate recipient management endpoints",
+      "environment": {},
+      "environmentPropertyOrder": null,
+      "metaSortKey": 2000000000000,
+      "_type": "request_group"
+    },
+    {
+      "_id": "fld_public",
+      "parentId": "wrk_fulfillment",
+      "modified": 1733510100000,
+      "created": 1733510100000,
+      "name": "Public Endpoints",
+      "description": "Public endpoints (no authentication required)",
+      "environment": {},
+      "environmentPropertyOrder": null,
+      "metaSortKey": 3000000000000,
+      "_type": "request_group"
+    },
+    {
+      "_id": "wrk_fulfillment",
+      "parentId": null,
+      "modified": 1733510100000,
+      "created": 1733510100000,
+      "name": "Fulfillment Service API",
+      "description": "E-Commerce Fulfillment Service API Collection",
+      "scope": "collection",
+      "_type": "workspace"
+    },
+    {
+      "_id": "env_fulfillment",
+      "parentId": "wrk_fulfillment",
+      "modified": 1733510100000,
+      "created": 1733510100000,
+      "name": "Base Environment",
+      "data": {
+        "base_url": "http://localhost:8091"
+      },
+      "dataPropertyOrder": {
+        "&": [
+          "base_url"
+        ]
+      },
+      "color": null,
+      "isPrivate": false,
+      "metaSortKey": 1733510100000,
+      "_type": "environment"
+    }
+  ]
+}
+

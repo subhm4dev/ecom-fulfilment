@@ -47,6 +47,29 @@ public class DeliveryController {
         return ResponseEntity.ok(ApiResponse.success(response, "Location updated successfully"));
     }
     
+    /**
+     * Public tracking endpoint (no authentication required)
+     * Customer can track using just tracking number
+     */
+    @GetMapping("/public/tracking/{trackingNumber}")
+    @Operation(summary = "Public tracking", description = "Track delivery using tracking number (no auth required)")
+    public ResponseEntity<ApiResponse<TrackingResponse>> publicTracking(
+            @PathVariable String trackingNumber,
+            @RequestHeader(value = "X-Tenant-Id", required = false) UUID tenantId) {
+        
+        // If tenantId not provided, try to find from tracking number
+        // For now, require tenantId - throw exception if missing
+        if (tenantId == null) {
+            throw new com.ecom.error.exception.BusinessException(
+                com.ecom.error.model.ErrorCode.INVALID_REQUEST,
+                "Tenant ID is required"
+            );
+        }
+        
+        TrackingResponse response = deliveryService.getTracking(trackingNumber, tenantId);
+        return ResponseEntity.ok(ApiResponse.success(response, "Tracking information retrieved"));
+    }
+    
     @GetMapping("/{deliveryId}/tracking")
     @Operation(summary = "Get tracking information", description = "Gets tracking information (public)")
     public ResponseEntity<ApiResponse<TrackingResponse>> getTracking(

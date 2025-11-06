@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -50,6 +51,21 @@ public class Driver {
     @Column(name = "status", nullable = false)
     @Builder.Default
     private DriverStatus status = DriverStatus.AVAILABLE;
+    
+    // Location tracking
+    @Column(name = "current_latitude", precision = 10, scale = 8)
+    private BigDecimal currentLatitude;
+    
+    @Column(name = "current_longitude", precision = 11, scale = 8)
+    private BigDecimal currentLongitude;
+    
+    @Column(name = "last_location_update")
+    private LocalDateTime lastLocationUpdate;
+    
+    // Earnings
+    @Column(name = "earnings", precision = 10, scale = 2)
+    @Builder.Default
+    private BigDecimal earnings = BigDecimal.ZERO;
     
     @Column(name = "created_at", nullable = false, updatable = false)
     @Builder.Default

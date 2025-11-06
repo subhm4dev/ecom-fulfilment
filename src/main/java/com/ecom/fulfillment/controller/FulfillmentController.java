@@ -34,6 +34,7 @@ import java.util.UUID;
 public class FulfillmentController {
     
     private final FulfillmentService fulfillmentService;
+    private final com.ecom.fulfillment.service.DeliveryPreferenceService preferenceService;
     
     @PostMapping
     @Operation(summary = "Create fulfillment", description = "Creates a new fulfillment for an order")
@@ -103,6 +104,41 @@ public class FulfillmentController {
     private UUID getTenantIdFromAuthentication(Authentication authentication) {
         if (authentication instanceof JwtAuthenticationToken jwtToken) {
             return UUID.fromString(jwtToken.getTenantId());
+        }
+        throw new IllegalStateException("Invalid authentication token");
+    }
+    
+    @PutMapping("/{fulfillmentId}/preferences")
+    @Operation(summary = "Update delivery preferences", description = "Updates delivery preferences for a fulfillment")
+    public ResponseEntity<ApiResponse<com.ecom.fulfillment.model.response.DeliveryPreferenceResponse>> updatePreferences(
+        @PathVariable UUID fulfillmentId,
+        @Valid @RequestBody com.ecom.fulfillment.model.request.UpdateDeliveryPreferenceRequest request,
+        Authentication authentication
+    ) {
+        UUID tenantId = getTenantIdFromAuthentication(authentication);
+        UUID userId = getUserIdFromAuthentication(authentication);
+        
+        com.ecom.fulfillment.model.response.DeliveryPreferenceResponse response = 
+            preferenceService.updatePreferences(fulfillmentId, userId, tenantId, request);
+        
+        return ResponseEntity.ok(ApiResponse.success(response, "Preferences updated"));
+    }
+    
+    @GetMapping("/{fulfillmentId}/preferences")
+    @Operation(summary = "Get delivery preferences", description = "Gets delivery preferences for a fulfillment")
+    public ResponseEntity<ApiResponse<com.ecom.fulfillment.model.response.DeliveryPreferenceResponse>> getPreferences(
+        @PathVariable UUID fulfillmentId,
+        Authentication authentication
+    ) {
+        UUID tenantId = getTenantIdFromAuthentication(authentication);
+        com.ecom.fulfillment.model.response.DeliveryPreferenceResponse response = 
+            preferenceService.getPreferences(fulfillmentId, tenantId);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+    
+    private UUID getUserIdFromAuthentication(Authentication authentication) {
+        if (authentication instanceof JwtAuthenticationToken jwtToken) {
+            return UUID.fromString(jwtToken.getUserId());
         }
         throw new IllegalStateException("Invalid authentication token");
     }

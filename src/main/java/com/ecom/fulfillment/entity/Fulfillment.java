@@ -58,6 +58,23 @@ public class Fulfillment {
     @Column(name = "actual_delivery")
     private LocalDateTime actualDelivery;
     
+    // Additional fields from requirements
+    @Column(name = "priority", length = 50)
+    @Builder.Default
+    private String priority = "NORMAL"; // URGENT, HIGH, NORMAL, LOW
+    
+    @Column(name = "exception_reason", length = 200)
+    private String exceptionReason;
+    
+    @Column(name = "delivery_instructions", columnDefinition = "TEXT")
+    private String deliveryInstructions;
+    
+    @Column(name = "scheduled_delivery_date")
+    private LocalDateTime scheduledDeliveryDate;
+    
+    @Column(name = "delivery_time_window", length = 100)
+    private String deliveryTimeWindow;
+    
     @OneToMany(mappedBy = "fulfillment", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<Delivery> deliveries = new ArrayList<>();
